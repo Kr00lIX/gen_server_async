@@ -6,10 +6,10 @@ defmodule GenServerAsync do
 
   ```
   defmodule Queue do
-    use Eyr.GenServerAsync
+    use GenServerAsync
 
     def register(pid, user) do
-      Eyr.GenServerAsync.call_async(pid, {:register, user})
+      GenServerAsync.call_async(pid, {:register, user})
     end
 
     # blocking call
@@ -24,46 +24,94 @@ defmodule GenServerAsync do
       end
     end
 
-    def handle_call({:async, {:register, user}}, from, state) do
-      result = heavy_fun(user)
+    # called async
+    def handle_call_async({:register, user}, from, state) do
+      result = heavy_function(user)
       {:reply, result, state}
+    end
+
+    # called on finish `handle_call_async` with result
+    def handle_cast_async({:register, user}, result, state) do
+      # update state if needed
+      {:noreply, state}
     end
   end
   ```
   """
+  @type result :: term()
+  @type message :: term()
+  @type state :: term()
 
-  defmacro __using__(opts \\ []) do
+  @callback handle_call_async(message, state) :: {:reply, result}
+
+  @callback handle_cast_async(message, result, state) :: {:noreply, state}
+
+  defdelegate start_link(module, args, options \\ []), to: GenServer
+
+  defdelegate call(server, message, timeout \\ 5000), to: GenServer
+  
+
+  defmacro __using__(_opts \\ []) do
     quote do
       use GenServer
-      import GenServerAsync.Base
+      require Logger
 
-      def handle_call({:call_async, message, opts}, from, state) do
-        genserver_pid = self()
-        pre_call = handle_call_async(:before, message, from, state)
-        case(pre_call) do
+      def init(state) do
+        {:ok, state}
+      end
+
+      def handle_call({:call_async, genserver_pid, message, opts}, from, state) do
+        case handle_call(message, from, state) do
           {:reply, result, state} ->
             {:reply, result, state}
+
           {:noreply, updated_state} ->
-            current_pid = self()
             Task.start_link(fn ->
-              {:reply, result} = handle_call_async(:call, message, self(), updated_state)
-    
-              GenServer.reply(from, result)
-              GenServer.cast(genserver_pid, {:async_cast, message, result})
+              try do
+                {:reply, result} = handle_call_async(message, updated_state)
+                GenServer.cast(genserver_pid, {:async_cast, from, message, result})
+              rescue
+                error ->
+                  Logger.error("Handle call async error: #{inspect(error)}")
+                  GenServer.cast(genserver_pid, {:async_cast, from, message, {:error, error}})
+              end
             end)
+
             {:noreply, updated_state}
         end
       end
 
-      def handle_cast({:async_cast, message, result}, state) do
-        handle_call_async(:finish, message, result, state)
+      def handle_call({:call_no_async, genserver_pid, message, opts}, from, state) do
+        case handle_call(message, from, state) do
+          {:reply, response, state} ->
+            {:reply, response, state}
+
+          {:noreply, call_state} ->
+            {:reply, result} = handle_call_async(message, call_state)
+            {:noreply, updated_state} = handle_cast_async(message, result, call_state)
+            {:reply, result, updated_state}
+        end
       end
+
+      def handle_cast({:async_cast, from, message, result}, state) do
+        GenServer.reply(from, result)
+        handle_cast_async(message, result, state)
+      end
+
+      def handle_cast_async(_message, _result, state) do
+        {:noreply, state}
+      end 
+
+      defoverridable init: 1, handle_cast_async: 3
     end
   end
 
-  def call_async(pid, message, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 10_000)
-    GenServer.call(pid, {:call_async, message, opts}, timeout)
-  end
+  @doc ~S"""
 
+  """
+  def call_async(pid, message, opts \\ []) do
+    timeout = opts[:timeout] || 20_000
+    event_name = (Keyword.get(opts, :async, true) && :call_async) || :call_no_async
+    GenServer.call(pid, {event_name, pid, message, opts}, timeout)
+  end
 end
