@@ -10,7 +10,7 @@ Add `gen_server_async` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:gen_server_async, "~> 0.1.0"}]
+  [{:gen_server_async, "~> 0.0.1"}]
 end
 ```
 

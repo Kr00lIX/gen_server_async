@@ -2,7 +2,7 @@ defmodule GenServerAsync do
   @moduledoc """
   Gen server with no blocking calls
 
-  # Ussage
+  # Usage
 
   ```
   defmodule Queue do
@@ -50,7 +50,6 @@ defmodule GenServerAsync do
 
   defdelegate call(server, message, timeout \\ 5000), to: GenServer
   
-
   defmacro __using__(_opts \\ []) do
     quote do
       use GenServer
@@ -112,6 +111,6 @@ defmodule GenServerAsync do
   def call_async(pid, message, opts \\ []) do
     timeout = opts[:timeout] || 20_000
     event_name = (Keyword.get(opts, :async, true) && :call_async) || :call_no_async
-    GenServer.call(pid, {event_name, pid, message, opts}, timeout)
+    call(pid, {event_name, pid, message, opts}, timeout)
   end
 end

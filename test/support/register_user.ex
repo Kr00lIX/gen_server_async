@@ -33,8 +33,7 @@ defmodule GenServerAsync.Support.RegisterUser do
 
   @doc """
   Register all users  {:ok, user} for all 
-  """
-  
+  """  
   def handle_call_async({:register, %User{state: :init}=user}, state) do
     # IO.inspect(state, label: "call async valid")
     # emulate hard work
@@ -43,10 +42,9 @@ defmodule GenServerAsync.Support.RegisterUser do
     {:reply, {:ok, updated_user}}
   end
 
-  def handle_call_async({:register, user}, state) do
+  def handle_call_async({:register, _user}, _state) do
     # emulate hard work
     Process.sleep(20)
-    updated_user = %{user | state: :deleted}
     {:reply, {:error, :invalid}}
   end
 
