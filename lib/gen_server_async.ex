@@ -1,10 +1,10 @@
 defmodule GenServerAsync do
-  @moduledoc """
-  Gen server with no blocking calls
+  @moduledoc ~S"""
+  Gen Server with no blocking calls
 
-  # Usage
+  ## Example
 
-  ```
+  ```elixir
   defmodule Queue do
     use GenServerAsync
 
@@ -37,28 +37,125 @@ defmodule GenServerAsync do
     end
   end
   ```
+
+  ## Client / Server APIs
+  Although in the example above we have used GenServer.start_link/3 and friends
+  to directly start and communicate with the server, most of the time we don't
+  call the GenServer functions directly. Instead, we wrap the calls in new
+  functions representing the public API of the server.
+
+  Here is a better implementation of our Stack module:
+
+  ```elixir
+    defmodule Stack do
+      use GenServer
+
+      # Client
+
+      def start_link(default) do
+        GenServer.start_link(__MODULE__, default)
+      end
+
+      def push(pid, item) do
+        GenServer.cast(pid, {:push, item})
+      end
+
+      def pop(pid) do
+        GenServer.call(pid, :pop)
+      end
+
+      # Server (callbacks)
+
+      def handle_call(:pop, _from, [h | t]) do
+        {:reply, h, t}
+      end
+
+      def handle_call(request, from, state) do
+        # Call the default implementation from GenServer
+        super(request, from, state)
+      end
+
+      def handle_cast({:push, item}, state) do
+        {:noreply, [item | state]}
+      end
+
+      def handle_cast(request, state) do
+        super(request, state)
+      end
+    end
+
+    ## Debugging
+    
+  ```
+
+  In practice, it is common to have both server and client functions in the same
+  module. If the server and/or client implementations are growing complex, you
+  may want to have them in different modules.
   """
+
   @type result :: term()
   @type message :: term()
   @type state :: term()
 
+  @doc """
+  TODO:
+
+  """
   @callback handle_call_async(message, state) :: {:reply, result}
 
-  @callback handle_cast_async(message, result, state) :: {:noreply, state}
+  @doc """
+  TODO:
 
+  If this callback is not implemented, the default implementation by
+  `use GenServerAsync` will return `{:noreply, state}`.
+  """
+  @callback handle_cast_async(message :: term(), result, state) :: {:noreply, state}
+
+  @optional_callbacks handle_cast_async: 3
+
+  @doc """
+  Starts a `GenServerAsync` process linked to the current process.
+
+  See `GenServer.start_link/3`.
+  """
+  @spec start_link(GenServer.module(), any(), GenServer.options()) :: GenServer.on_start()
   defdelegate start_link(module, args, options \\ []), to: GenServer
 
+  @doc """
+  Makes a synchronous call to the `server` and waits for its reply.
+
+  See `GenServer.call/3`.
+  """
+  @spec call(GenServer.server(), term(), timeout()) :: term()
   defdelegate call(server, message, timeout \\ 5000), to: GenServer
   
-  defmacro __using__(_opts \\ []) do
-    quote do
-      use GenServer
-      require Logger
+  @doc """
+  Sends an asynchronous request to the `server`.
+  
+  See `GenServer.cast/2`.
+  """
+  @spec cast(GenServer.server(), term()) :: :ok
+  defdelegate cast(server, request), to: GenServer
+
+  @doc """
+  Replies to a client.
+
+  See `GenServer.reply/2`.
+  """
+  @spec reply(GenServer.from(), term()) :: :ok
+  defdelegate reply(client, reply), to: GenServer
+  
+  @doc false
+  defmacro __using__(opts) do
+    quote location: :keep, bind_quoted: [opts: opts] do
+      use GenServer, Macro.escape(opts)
+      @behaviour GenServerAsync
 
       def init(state) do
         {:ok, state}
       end
-
+      
+      @doc false
       def handle_call({:call_async, genserver_pid, message, opts}, from, state) do
         case handle_call(message, from, state) do
           {:reply, result, state} ->
@@ -71,7 +168,6 @@ defmodule GenServerAsync do
                 GenServer.cast(genserver_pid, {:async_cast, from, message, result})
               rescue
                 error ->
-                  Logger.error("Handle call async error: #{inspect(error)}")
                   GenServer.cast(genserver_pid, {:async_cast, from, message, {:error, error}})
               end
             end)
@@ -80,6 +176,7 @@ defmodule GenServerAsync do
         end
       end
 
+      @doc false
       def handle_call({:call_no_async, genserver_pid, message, opts}, from, state) do
         case handle_call(message, from, state) do
           {:reply, response, state} ->
@@ -92,6 +189,7 @@ defmodule GenServerAsync do
         end
       end
 
+      @doc false
       def handle_cast({:async_cast, from, message, result}, state) do
         GenServer.reply(from, result)
         handle_cast_async(message, result, state)
@@ -106,8 +204,16 @@ defmodule GenServerAsync do
   end
 
   @doc ~S"""
+  Makes a synchronous call to the server and waits for its reply.
+
+  The client sends the given request to the `server` and waits until a reply
+  arrives or a timeout occurs. `c:handle_call/3` will be called on the server to
+  handle the request. 
+
+  `c:handle_cast_async/3` will be called an asynchronous if `c:handle_call/3` returns `{:no_reply, state}`.
 
   """
+  @spec call_async(GenServer.server(), message) :: result()
   def call_async(pid, message, opts \\ []) do
     timeout = opts[:timeout] || 20_000
     event_name = (Keyword.get(opts, :async, true) && :call_async) || :call_no_async

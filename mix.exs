@@ -1,36 +1,43 @@
 defmodule GenServerAsync.Mixfile do
   use Mix.Project
 
-  @version "0.0.1"
+  @version "0.0.2"
 
   def project do
     [
       app: :gen_server_async,
       version: @version,
-      description: "GenServerAsync behaviour module for implementing the server of a client-server relation.",
-      elixir: ">= 1.3.0",
+      elixir: "~> 1.4",
       elixirc_paths: elixirc_paths(Mix.env()),
-      package: package(),
-      build_embedded: Mix.env() == :prod,
-      start_permanent: Mix.env() == :prod,
+      build_per_environment: false,
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: ["coveralls": :test, "coveralls.travis": :test]
+      preferred_cli_env: ["coveralls": :test, "coveralls.travis": :test],
+
+      # Hex
+      description: "GenServerAsync behaviour module for implementing the server of a client-server relation.",
+      package: package(),
+
+      # Docs
+      name: "GenServerAsync",
+      docs: docs()  
     ]
   end
 
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
     ]
   end
 
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:ex_doc, ">= 0.0.0", only: :dev},
-      {:excoveralls, "~> 0.8", only: :test}
+      {:excoveralls, "~> 0.8", only: :test},
+
+      # Docs
+      {:ex_doc, "~> 0.17", only: :docs},
+      {:inch_ex, ">= 0.0.0", only: :docs}
     ]
   end
 
@@ -41,9 +48,18 @@ defmodule GenServerAsync.Mixfile do
       contributors: ["Kr00lIX"],
       maintainers: ["Anatoliy Kovalchuk"],
       links: %{github: "https://github.com/Kr00lIX/gen_server_async"},
-      licenses: ["LISENSE.md"],
+      licenses: ["LICENSE.md"],
       files: ~w(lib LICENSE.md mix.exs README.md)
     }
+  end
+
+  def docs do
+    [
+      main: "GenServerAsync",
+      source_ref: "v#{@version}",
+      extras: ["README.md"],
+      source_url: "https://github.com/Kr00lIX/gen_server_async"
+    ]
   end
 
   # Specifies which paths to compile per environment.
