@@ -46,7 +46,7 @@ defmodule GenServerAsync do
   ```
 
   ## Debugging
-  Use `async: false` for disable asynchonious calling `c:handle_call_async/2` for debuging. 
+  Use `async: false` for disable asynchonious calling `c:handle_call_async/2` for debuging.
 
   ```elixir
   GenServerAsync.call_async(server, request, async: false)
@@ -61,7 +61,6 @@ defmodule GenServerAsync do
 
   @typedoc "GenServer state"
   @type state :: term()
-
 
   @doc """
 
@@ -119,11 +118,13 @@ defmodule GenServerAsync do
       use GenServer, Macro.escape(opts)
       @behaviour GenServerAsync
 
+      @impl GenServer
       def init(state) do
         {:ok, state}
       end
 
       @doc false
+      @impl true
       def handle_call({:call_async, genserver_pid, request, opts}, from, state) do
         case handle_call(request, from, state) do
           {:reply, result, state} ->
@@ -158,6 +159,7 @@ defmodule GenServerAsync do
       end
 
       @doc false
+      @impl true
       def handle_cast({:async_cast, from, request, result}, state) do
         GenServer.reply(from, result)
         handle_cast_async(request, result, state)
@@ -176,7 +178,7 @@ defmodule GenServerAsync do
 
   The client sends the given request to the `server` and waits until a reply
   arrives or a timeout occurs. `c:handle_call/3` will be called on the server to
-  handle the request. 
+  handle the request.
 
   `c:handle_cast_async/3` will be called an asynchronous if `c:handle_call/3` returns `{:no_reply, state}`.
 
@@ -185,8 +187,15 @@ defmodule GenServerAsync do
   """
   @spec call_async(GenServer.server(), request) :: result()
   def call_async(pid, request, opts \\ []) do
-    timeout = opts[:timeout] || 20_000
-    event_name = (Keyword.get(opts, :async, true) && :call_async) || :call_no_async
+    timeout = config(opts, :timeout, 20_00)
+    event_name = (config(opts, :async, true) && :call_async) || :call_no_async
     call(pid, {event_name, pid, request, opts}, timeout)
+  end
+
+  @spec config(Keyword.t(), atom(), any()) :: any()
+  def config(opts, name, default) do
+    if Keyword.get(opts, name) == nil do
+      Application.get_env(:gen_server_async, name, default)
+    end
   end
 end

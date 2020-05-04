@@ -7,10 +7,12 @@ defmodule GenServerAsync.Support.RegisterUser do
     defstruct [:name, :age, :state]
   end
 
+  @impl true
   def init(init_state) do
     {:ok, init_state}
   end
 
+  @impl true
   def handle_call({:register, user}, _from, state) do
     # IO.inspect(state, label: "call register")
     if Map.has_key?(state, user.name) do
@@ -36,6 +38,7 @@ defmodule GenServerAsync.Support.RegisterUser do
   @doc """
   Register all users  {:ok, user} for all
   """
+  @impl true
   def handle_call_async({:register, %User{state: :init} = user}, _state) do
     # IO.inspect(state, label: "call async valid")
     # emulate hard work
@@ -54,6 +57,7 @@ defmodule GenServerAsync.Support.RegisterUser do
   add to state on {:ok, user}
   delete from state on {:error, user}
   """
+  @impl true
   def handle_cast_async({:register, user}, {:error, :invalid}, state) do
     updated_state = Map.delete(state, user.name)
     {:noreply, updated_state}

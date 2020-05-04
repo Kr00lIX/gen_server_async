@@ -10,6 +10,7 @@ defmodule GenServerAsync.Support.CalendarService do
     {:noreply, :ok}
   end
 
+  @impl true
   def handle_call_async({:add, timeout}, :ok) do
     # IO.inspect timeout, label: "call async "
     # emulate hard work
