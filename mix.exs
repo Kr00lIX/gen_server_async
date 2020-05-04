@@ -7,37 +7,49 @@ defmodule GenServerAsync.Mixfile do
     [
       app: :gen_server_async,
       version: @version,
-      elixir: "~> 1.4",
+      elixir: ">= 1.4.0",
       elixirc_paths: elixirc_paths(Mix.env()),
-      build_per_environment: false,
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
       deps: deps(),
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: ["coveralls": :test, "coveralls.travis": :test],
 
       # Hex
-      description: "GenServerAsync behaviour module for implementing the server of a client-server relation.",
+      description:
+        "GenServerAsync behaviour module for implementing the server of a client-server relation.",
       package: package(),
+
+      # Test
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [coveralls: :test, "coveralls.travis": :test],
 
       # Docs
       name: "GenServerAsync",
-      docs: docs()  
+      docs: docs(),
+
+      # Dev
+      dialyzer: [flags: ["-Wunmatched_returns", :error_handling, :underspecs]]
     ]
   end
 
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      extra_applications: [:logger]
     ]
   end
 
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:excoveralls, "~> 0.8", only: :test},
+      # Test
+      {:excoveralls, "~> 0.10", only: :test},
+      {:junit_formatter, "~> 3.0", only: :test},
+      {:credo, "~> 1.0", only: [:dev, :test]},
 
-      # Docs
-      {:ex_doc, "~> 0.17", only: :docs},
-      {:inch_ex, ">= 0.0.0", only: :docs}
+      # Dev
+      {:dialyxir, "~> 1.0.0-rc.6", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.19", only: :dev, runtime: false},
+      {:inch_ex, ">= 0.0.0", only: :dev}
     ]
   end
 
@@ -53,7 +65,7 @@ defmodule GenServerAsync.Mixfile do
     }
   end
 
-  def docs do
+  defp docs do
     [
       main: "GenServerAsync",
       source_ref: "v#{@version}",
@@ -65,5 +77,4 @@ defmodule GenServerAsync.Mixfile do
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
-  
 end

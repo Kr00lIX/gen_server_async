@@ -17,5 +17,4 @@ defmodule GenServerAsync.Support.CalendarService do
     # IO.inspect timeout, label: "call async result"
     {:reply, {:ok, timeout}}
   end
-
 end
